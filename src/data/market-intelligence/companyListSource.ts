@@ -351,7 +351,7 @@ const fetchAllRows = async <T extends Record<string, unknown>>(
       throw tableError;
     }
 
-    const page = (data ?? []) as T[];
+    const page = (data ?? []) as unknown as T[];
     rows.push(...page);
 
     if (page.length < PAGE_SIZE) break;
