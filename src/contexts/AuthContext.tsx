@@ -15,7 +15,7 @@ interface UserProfile {
   id: string;
   email: string;
   username: string;
-  role: "ADMIN" | "CUSTOMER";
+  role: "admin" | "customer";
   is_active: boolean;
 }
 
@@ -66,20 +66,30 @@ const formatDisplayName = (email: string, username: string) => {
 const normalizeIdentifier = (identifier: string) => identifier.trim().toLowerCase();
 
 const mapRoleToAccountType = (role: UserProfile["role"]): AccountType => (
-  role === "ADMIN" ? "admin" : "customer"
+  role === "admin" ? "admin" : "customer"
 );
 
 async function resolveProfileByUser(user: User | null): Promise<UserProfile | null> {
   if (!user || !supabase) return null;
 
-  const { data, error } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("users")
-    .select("id, email, username, role, is_active")
+    .select("id, email, username, is_active")
     .eq("id", user.id)
     .maybeSingle();
 
-  if (error || !data) return null;
-  return data as UserProfile;
+  if (profileError || !profile) return null;
+
+  const { data: roleData } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  return {
+    ...profile,
+    role: (roleData?.role as UserProfile["role"]) ?? "customer",
+  } as UserProfile;
 }
 
 async function resolveEmailFromIdentifier(identifier: string): Promise<string | null> {
