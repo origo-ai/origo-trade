@@ -7,7 +7,7 @@ import {
   type PropsWithChildren,
 } from "react";
 import type { User } from "@supabase/supabase-js";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 export type AccountType = "customer" | "admin";
 
@@ -130,7 +130,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) {
+    if (!supabase) {
       setLoading(false);
       return;
     }
@@ -184,7 +184,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       ...session,
       loading,
       login: async (identifier, password) => {
-        if (!isSupabaseConfigured || !supabase) {
+        if (!supabase) {
           return { success: false, error: "Authentication is not configured." };
         }
 
@@ -230,13 +230,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setSession(emptySession);
       },
       requestPasswordReset: async (email) => {
-        if (!isSupabaseConfigured || !supabase) return;
+        if (!supabase) return;
         await supabase.auth.resetPasswordForEmail(email.trim(), {
           redirectTo: `${window.location.origin}/reset-password`,
         });
       },
       resetPassword: async (newPassword) => {
-        if (!isSupabaseConfigured || !supabase) {
+        if (!supabase) {
           return { success: false, error: "Authentication is not configured." };
         }
 
