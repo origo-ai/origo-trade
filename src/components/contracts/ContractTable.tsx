@@ -19,6 +19,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  CUSTOMER_SCOPE_NOT_MAPPED_MESSAGE,
+  getScopeAwareErrorMessage,
+  resolveCustomerScope,
+} from "@/lib/customerScope";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 type ContractRelation =
@@ -305,8 +311,10 @@ const statusFilterTheme: Record<
 };
 
 export function ContractTable() {
+  const { email, username } = useAuth();
   const [searchParams] = useSearchParams();
   const [rows, setRows] = useState<ContractTableRow[]>([]);
+  const [customerScopeId, setCustomerScopeId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("overdue");
@@ -377,6 +385,7 @@ export function ContractTable() {
     const fetchData = async () => {
       if (!isSupabaseConfigured || !supabase) {
         setError("Supabase is not configured.");
+        setCustomerScopeId(null);
         setLoading(false);
         return;
       }
@@ -384,17 +393,30 @@ export function ContractTable() {
       setLoading(true);
       setError(null);
 
+      const scope = await resolveCustomerScope({ email, username });
+      if (!scope.customerId) {
+        setError(CUSTOMER_SCOPE_NOT_MAPPED_MESSAGE);
+        setRows([]);
+        setCustomerScopeId(null);
+        setLoading(false);
+        return;
+      }
+
+      setCustomerScopeId(scope.customerId);
+
       const { data, error } = await supabase
         .from("contract_lines")
         .select(
           "line_id, contract_id, job, product, price, team, status, ton, acc, date_from, date_to, extra_fields, contracts(customer, type, contractdate)",
         )
+        .eq("customer_id", scope.customerId)
         .order("date_to", { ascending: true });
 
       if (cancelled) return;
 
       if (error) {
-        setError(error.message);
+        setError(getScopeAwareErrorMessage(error));
+        setCustomerScopeId(null);
         setLoading(false);
         return;
       }
@@ -432,7 +454,7 @@ export function ContractTable() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [email, username]);
 
   useEffect(() => {
     let cancelled = false;
@@ -443,6 +465,11 @@ export function ContractTable() {
         setDeliveriesError(null);
         return;
       }
+      if (!customerScopeId) {
+        setDeliveries([]);
+        setDeliveriesError(CUSTOMER_SCOPE_NOT_MAPPED_MESSAGE);
+        return;
+      }
 
       setDeliveriesLoading(true);
       setDeliveriesError(null);
@@ -450,6 +477,7 @@ export function ContractTable() {
       let query = supabase
         .from("deliveries")
         .select("delivery_id, contract_id, job, delivery_date, record, quantity, remark")
+        .eq("customer_id", customerScopeId)
         .eq("contract_id", selectedRow.contractId);
 
       if (selectedRow.jobValue) {
@@ -463,7 +491,7 @@ export function ContractTable() {
       if (cancelled) return;
 
       if (error) {
-        setDeliveriesError(error.message);
+        setDeliveriesError(getScopeAwareErrorMessage(error));
         setDeliveries([]);
         setDeliveriesLoading(false);
         return;
@@ -477,7 +505,7 @@ export function ContractTable() {
     return () => {
       cancelled = true;
     };
-  }, [isDetailOpen, selectedRow]);
+  }, [isDetailOpen, selectedRow, customerScopeId]);
 
   const openDetails = (row: ContractTableRow) => {
     setSelectedRow(row);
@@ -593,6 +621,12 @@ export function ContractTable() {
         setCustomerDeliveriesLoading(false);
         return;
       }
+      if (!customerScopeId) {
+        setCustomerDeliveries([]);
+        setCustomerDeliveriesError(CUSTOMER_SCOPE_NOT_MAPPED_MESSAGE);
+        setCustomerDeliveriesLoading(false);
+        return;
+      }
 
       const contractIds = customerSummary.contractIds;
       if (contractIds.length === 0) {
@@ -608,6 +642,7 @@ export function ContractTable() {
       const { data, error } = await supabase
         .from("deliveries")
         .select("delivery_id, contract_id, job, delivery_date, record, quantity, remark")
+        .eq("customer_id", customerScopeId)
         .in("contract_id", contractIds)
         .order("delivery_date", { ascending: false });
 
@@ -615,7 +650,7 @@ export function ContractTable() {
 
       if (error) {
         setCustomerDeliveries([]);
-        setCustomerDeliveriesError(error.message);
+        setCustomerDeliveriesError(getScopeAwareErrorMessage(error));
         setCustomerDeliveriesLoading(false);
         return;
       }
@@ -628,7 +663,7 @@ export function ContractTable() {
     return () => {
       cancelled = true;
     };
-  }, [isCustomerSummaryOpen, selectedCustomer, customerSummary.contractIds]);
+  }, [isCustomerSummaryOpen, selectedCustomer, customerSummary.contractIds, customerScopeId]);
 
   const summary = useMemo(() => {
     return rows.reduce(

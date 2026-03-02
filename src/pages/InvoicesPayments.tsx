@@ -21,6 +21,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  CUSTOMER_SCOPE_NOT_MAPPED_MESSAGE,
+  getScopeAwareErrorMessage,
+  resolveCustomerScope,
+} from "@/lib/customerScope";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 type FinanceInvoiceDbRow = {
@@ -213,6 +219,7 @@ const statusBucketVisuals: Record<
 };
 
 export default function InvoicesPayments() {
+  const { email, username } = useAuth();
   const [searchParams] = useSearchParams();
   const [rows, setRows] = useState<InvoiceRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -259,17 +266,26 @@ export default function InvoicesPayments() {
       setLoading(true);
       setError(null);
 
+      const scope = await resolveCustomerScope({ email, username });
+      if (!scope.customerId) {
+        setError(CUSTOMER_SCOPE_NOT_MAPPED_MESSAGE);
+        setRows([]);
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("finance_invoices")
         .select(
           "id, invoice, tons, total_invoice, usd, contact, credit, export, team, thb, booking_no, contract, convert_date, convert_rate, customer_name, fac, invoice_date, price, status_type, status_detail",
         )
+        .eq("customer_id", scope.customerId)
         .order("invoice_date", { ascending: false });
 
       if (cancelled) return;
 
       if (error) {
-        setError(error.message);
+        setError(getScopeAwareErrorMessage(error));
         setRows([]);
         setLoading(false);
         return;
@@ -306,7 +322,7 @@ export default function InvoicesPayments() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [email, username]);
 
   const uniqueFactories = useMemo(
     () => [...new Set(rows.map((row) => row.factory).filter(Boolean))].sort((a, b) => a.localeCompare(b)),

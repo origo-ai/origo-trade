@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Factory, Package2, Search } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  CUSTOMER_SCOPE_NOT_MAPPED_MESSAGE,
+  getScopeAwareErrorMessage,
+  resolveCustomerScope,
+} from "@/lib/customerScope";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 type RawStockRow = Record<string, unknown>;
@@ -75,6 +81,7 @@ const getFactoryStatus = (factory: FactorySummaryRow): { status: "neutral" | "wa
 };
 
 export default function Inventory() {
+  const { email, username } = useAuth();
   const [rows, setRows] = useState<InventoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +89,7 @@ export default function Inventory() {
   const [factoryFilter, setFactoryFilter] = useState("all");
   const [expandedFactoryId, setExpandedFactoryId] = useState<string | null>(null);
 
-  const fetchStock = async () => {
+  const fetchStock = useCallback(async () => {
     if (!isSupabaseConfigured || !supabase) {
       setError("Supabase is not configured.");
       setRows([]);
@@ -93,15 +100,21 @@ export default function Inventory() {
     setLoading(true);
     setError(null);
 
+    const scope = await resolveCustomerScope({ email, username });
+    if (!scope.customerId) {
+      setError(CUSTOMER_SCOPE_NOT_MAPPED_MESSAGE);
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from("stock")
-      .select("*");
-
-    console.log(data);
-    console.log(error);
+      .select("*")
+      .eq("customer_id", scope.customerId);
 
     if (error) {
-      setError(error.message);
+      setError(getScopeAwareErrorMessage(error));
       setRows([]);
       setLoading(false);
       return;
@@ -118,11 +131,11 @@ export default function Inventory() {
 
     setRows(mappedRows);
     setLoading(false);
-  };
+  }, [email, username]);
 
   useEffect(() => {
-    fetchStock();
-  }, []);
+    void fetchStock();
+  }, [fetchStock]);
 
   const uniqueFactories = useMemo(() => {
     return [...new Set(rows.map((row) => row.factory).filter(Boolean))].sort((a, b) => a.localeCompare(b));

@@ -16,6 +16,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { CUSTOMER_SCOPE_NOT_MAPPED_MESSAGE, resolveCustomerScope } from "@/lib/customerScope";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import {
   createProductRequest,
@@ -100,9 +101,13 @@ export default function YourProduct() {
     setError(null);
 
     try {
+      const scope = await resolveCustomerScope({ email, username });
       const [readyResult, requestResult] = await Promise.all([
         loadReadyPageProducts(),
-        loadProductRequests(),
+        loadProductRequests({
+          customerId: scope.customerId,
+          customerEmail: scope.customerId ? null : email,
+        }),
       ]);
 
       setReadyRows(readyResult.rows);
@@ -113,7 +118,7 @@ export default function YourProduct() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [email, username]);
 
   useEffect(() => {
     void refreshData();
@@ -235,9 +240,14 @@ export default function YourProduct() {
       if (imageFile) {
         imageDataUrl = await toDataUrl(imageFile);
       }
+      const scope = await resolveCustomerScope({ email, username });
+      if (!scope.customerId) {
+        throw new Error(CUSTOMER_SCOPE_NOT_MAPPED_MESSAGE);
+      }
 
       const created = await createProductRequest(
         {
+          customer_id: scope.customerId,
           customer_email: email,
           customer_username: username,
           customer_workspace: workspaceName,

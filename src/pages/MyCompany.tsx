@@ -15,6 +15,11 @@ import {
   type DashboardStockRow,
 } from "@/components/charts/ExecutiveTradeDashboard";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  CUSTOMER_SCOPE_NOT_MAPPED_MESSAGE,
+  getScopeAwareErrorMessage,
+  resolveCustomerScope,
+} from "@/lib/customerScope";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 type ContractRelation =
@@ -158,7 +163,7 @@ const statusBadge = (status: string) => {
 
 export default function MyCompany() {
   const navigate = useNavigate();
-  const { email } = useAuth();
+  const { email, username } = useAuth();
 
   const [contractRows, setContractRows] = useState<ContractMetricRow[]>([]);
   const [stockRows, setStockRows] = useState<DashboardStockRow[]>([]);
@@ -183,35 +188,48 @@ export default function MyCompany() {
       setLoading(true);
       setError(null);
 
+      const scope = await resolveCustomerScope({ email, username });
+      if (!scope.customerId) {
+        setError(CUSTOMER_SCOPE_NOT_MAPPED_MESSAGE);
+        setContractRows([]);
+        setStockRows([]);
+        setInvoiceRows([]);
+        setDeliveryRows([]);
+        setYourProductRows([]);
+        setLoading(false);
+        return;
+      }
+
       const [contractRes, stockRes, invoiceRes, deliveryRes, yourProductRes] = await Promise.all([
         supabase
           .from("contract_lines")
           .select("line_id, contract_id, job, product, team, status, ton, acc, date_to, contracts(customer, type, contractdate)")
+          .eq("customer_id", scope.customerId)
           .order("date_to", { ascending: false }),
-        supabase.from("stock").select("stock_id, factory, qty, tag, type"),
+        supabase.from("stock").select("stock_id, factory, qty, tag, type").eq("customer_id", scope.customerId),
         supabase
           .from("finance_invoices")
           .select("id, invoice_date, status_type, usd, total_invoice, tons, customer_name, fac")
+          .eq("customer_id", scope.customerId)
           .order("invoice_date", { ascending: false }),
         supabase
           .from("deliveries")
           .select("delivery_id, contract_id, job, delivery_date, quantity")
+          .eq("customer_id", scope.customerId)
           .order("delivery_date", { ascending: false }),
         supabase
           .from("your_product_requests")
           .select("id, customer_email, product_name, status, updated_at")
+          .eq("customer_id", scope.customerId)
           .order("updated_at", { ascending: false }),
       ]);
 
       if (cancelled) return;
 
-      if (contractRes.error || stockRes.error || invoiceRes.error || deliveryRes.error) {
+      if (contractRes.error || stockRes.error || invoiceRes.error || deliveryRes.error || yourProductRes.error) {
+        const firstError = contractRes.error ?? stockRes.error ?? invoiceRes.error ?? deliveryRes.error ?? yourProductRes.error;
         setError(
-          contractRes.error?.message ??
-            stockRes.error?.message ??
-            invoiceRes.error?.message ??
-            deliveryRes.error?.message ??
-            "Failed to load trade performance data.",
+          firstError ? getScopeAwareErrorMessage(firstError) : "Failed to load trade performance data.",
         );
         setContractRows([]);
         setStockRows([]);
@@ -272,14 +290,7 @@ export default function MyCompany() {
         job: row.job,
       } satisfies DashboardDeliveryRow));
 
-      const mappedYourProducts = ((yourProductRes.data ?? []) as YourProductDbRow[])
-        .filter((row) => {
-          const rowEmail = (row.customer_email ?? "").trim().toLowerCase();
-          const currentEmail = (email ?? "").trim().toLowerCase();
-          if (!currentEmail) return true;
-          return rowEmail === currentEmail;
-        })
-        .map((row, index) => ({
+      const mappedYourProducts = ((yourProductRes.data ?? []) as YourProductDbRow[]).map((row, index) => ({
           id: row.id ?? `your-product-${index}`,
           customer_email: row.customer_email,
           product_name: row.product_name,
@@ -300,7 +311,7 @@ export default function MyCompany() {
     return () => {
       cancelled = true;
     };
-  }, [email]);
+  }, [email, username]);
 
   const totals = useMemo(() => {
     const totalCommitTon = contractRows.reduce((sum, row) => sum + row.ton, 0);

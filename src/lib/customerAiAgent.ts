@@ -1,4 +1,5 @@
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { CUSTOMER_SCOPE_NOT_MAPPED_MESSAGE, resolveCustomerScope } from "@/lib/customerScope";
 
 type CustomerRow = {
   id: string;
@@ -129,14 +130,6 @@ const SUPPLEMENTAL_TABLES = [
   "supabase_companies",
   "users",
 ] as const;
-
-const GLOBAL_SUPPLEMENTAL_TABLES = new Set<string>([
-  "contract_lines",
-  "deliveries",
-  "companies",
-  "supabase_companies",
-  "finance_invoices",
-]);
 
 const toNumber = (value: number | string | null | undefined) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -314,50 +307,25 @@ const isMissingTableError = (error: unknown) => {
 async function resolveCustomer(email: string, username: string, warnings: string[]): Promise<CustomerRow | null> {
   if (!supabase) return null;
 
-  const emailLower = email.trim().toLowerCase();
-  const usernameTrim = username.trim();
-
-  if (emailLower) {
-    const byEmail = await supabase
-      .from("customers")
-      .select("id, company_name, email, contact_name, phone, country, status, updated_at")
-      .ilike("email", emailLower)
-      .limit(1)
-      .maybeSingle();
-
-    if (byEmail.data) return byEmail.data as CustomerRow;
-    if (byEmail.error && !isMissingTableError(byEmail.error)) {
-      warnings.push(`customers lookup by email failed: ${extractErrorMessage(byEmail.error)}`);
-    }
+  const scope = await resolveCustomerScope({ email, username });
+  if (!scope.customerId) {
+    warnings.push(CUSTOMER_SCOPE_NOT_MAPPED_MESSAGE);
+    return null;
   }
 
-  if (usernameTrim) {
-    const byId = await supabase
-      .from("customers")
-      .select("id, company_name, email, contact_name, phone, country, status, updated_at")
-      .ilike("id", usernameTrim)
-      .limit(1)
-      .maybeSingle();
+  const byId = await supabase
+    .from("customers")
+    .select("id, company_name, email, contact_name, phone, country, status, updated_at")
+    .eq("id", scope.customerId)
+    .limit(1)
+    .maybeSingle();
 
-    if (byId.data) return byId.data as CustomerRow;
-    if (byId.error && !isMissingTableError(byId.error)) {
-      warnings.push(`customers lookup by id failed: ${extractErrorMessage(byId.error)}`);
-    }
-
-    const byCompanyLike = await supabase
-      .from("customers")
-      .select("id, company_name, email, contact_name, phone, country, status, updated_at")
-      .ilike("company_name", `%${usernameTrim}%`)
-      .limit(1)
-      .maybeSingle();
-
-    if (byCompanyLike.data) return byCompanyLike.data as CustomerRow;
-    if (byCompanyLike.error && !isMissingTableError(byCompanyLike.error)) {
-      warnings.push(`customers lookup by company_name failed: ${extractErrorMessage(byCompanyLike.error)}`);
-    }
+  if (byId.data) return byId.data as CustomerRow;
+  if (byId.error && !isMissingTableError(byId.error)) {
+    warnings.push(`customers lookup by id failed: ${extractErrorMessage(byId.error)}`);
   }
 
-  warnings.push("Customer account is not mapped in customers table; results may be incomplete.");
+  warnings.push("Customer mapping exists but customers row was not found.");
   return null;
 }
 
@@ -764,20 +732,17 @@ export async function loadAgentDataSnapshot(email: string, username: string): Pr
 
   const uploadsPromise = (async () => {
     try {
-      let query = supabase
+      if (!customer) {
+        warnings.push("uploads skipped: customer mapping is required.");
+        return [] as UploadRow[];
+      }
+
+      const { data, error } = await supabase
         .from("uploads")
         .select("id, file_name, file_type, review_status, status, uploaded_at, uploaded_by")
         .order("uploaded_at", { ascending: false })
+        .eq("customer_id", customer.id)
         .limit(500);
-      if (customer) {
-        query = query.eq("customer_id", customer.id);
-      } else if (email) {
-        query = query.eq("uploaded_by", email);
-      } else {
-        warnings.push("uploads skipped: no customer mapping and no account email for fallback.");
-        return [] as UploadRow[];
-      }
-      const { data, error } = await query;
       if (error) throw error;
       return (data ?? []) as UploadRow[];
     } catch (error) {
@@ -789,21 +754,19 @@ export async function loadAgentDataSnapshot(email: string, username: string): Pr
 
   const invoicePromise = (async () => {
     try {
+      if (!customer) {
+        warnings.push("finance_invoices skipped: customer mapping is required.");
+        return [] as InvoiceRow[];
+      }
+
       const { data, error } = await supabase
         .from("finance_invoices")
         .select("invoice, usd, status_type, invoice_date, customer_name")
+        .eq("customer_id", customer.id)
         .order("invoice_date", { ascending: false })
         .limit(1000);
       if (error) throw error;
-      const rows = ((data ?? []) as InvoiceRow[]);
-      if (customer) {
-        return rows.filter((row) => includeByCompany(row.customer_name, customer.company_name));
-      }
-      if (!identityTerms.length) {
-        warnings.push("finance_invoices not scoped: no customer mapping terms.");
-        return [] as InvoiceRow[];
-      }
-      return rows.filter((row) => includeByTerms(row.customer_name, identityTerms));
+      return (data ?? []) as InvoiceRow[];
     } catch (error) {
       const message = extractErrorMessage(error);
       if (!isMissingTableError(error)) warnings.push(`finance_invoices query failed: ${message}`);
@@ -813,51 +776,18 @@ export async function loadAgentDataSnapshot(email: string, username: string): Pr
 
   const stockPromise = (async () => {
     try {
-      const { data, error } = await supabase
-        .from("stock")
-        .select("*")
-        .limit(2000);
-      if (error) throw error;
-      const rows = (data ?? []) as StockDbRow[];
-
-      if (customer) {
-        const byCustomerId = rows.filter((row) => {
-          const customerId = toStringOrNull(row.customer_id);
-          return customerId ? normalize(customerId) === normalize(customer.id) : false;
-        });
-        if (byCustomerId.length > 0) return byCustomerId.map(mapStockRow);
-
-        const byCustomerName = rows.filter((row) => {
-          const customerName =
-            toStringOrNull(row.customer_name) ??
-            toStringOrNull(row.company_name) ??
-            toStringOrNull(row.importer);
-          return includeByCompany(customerName, customer.company_name);
-        });
-        if (byCustomerName.length > 0) return byCustomerName.map(mapStockRow);
-
-        warnings.push("stock table has no customer mapping; showing shared stock data.");
-        return rows.map(mapStockRow);
-      }
-
-      if (!identityTerms.length) {
-        warnings.push("stock skipped: no customer mapping terms.");
+      if (!customer) {
+        warnings.push("stock skipped: customer mapping is required.");
         return [] as StockRow[];
       }
 
-      const byIdentity = rows.filter((row) => {
-        const candidates = [
-          toStringOrNull(row.customer_name),
-          toStringOrNull(row.company_name),
-          toStringOrNull(row.importer),
-          toStringOrNull(row.owner_email),
-          toStringOrNull(row.email),
-        ];
-        return candidates.some((candidate) => includeByTerms(candidate, identityTerms));
-      });
-
-      if (byIdentity.length > 0) return byIdentity.map(mapStockRow);
-      warnings.push("stock not scoped: missing customer key in stock table; fallback to shared stock data.");
+      const { data, error } = await supabase
+        .from("stock")
+        .select("*")
+        .eq("customer_id", customer.id)
+        .limit(2000);
+      if (error) throw error;
+      const rows = (data ?? []) as StockDbRow[];
       return rows.map(mapStockRow);
     } catch (error) {
       const message = extractErrorMessage(error);
@@ -868,21 +798,19 @@ export async function loadAgentDataSnapshot(email: string, username: string): Pr
 
   const marketPromise = (async () => {
     try {
+      if (!customer) {
+        warnings.push("purchase_trend skipped: customer mapping is required.");
+        return [] as PurchaseTrendRow[];
+      }
+
       const { data, error } = await supabase
         .from("purchase_trend")
         .select("date, weight_kg, destination_country, product, importer")
+        .eq("customer_id", customer.id)
         .order("date", { ascending: false })
         .limit(1500);
       if (error) throw error;
-      const rows = (data ?? []) as PurchaseTrendRow[];
-      if (customer) {
-        return rows.filter((row) => includeByCompany(row.importer, customer.company_name));
-      }
-      if (!identityTerms.length) {
-        warnings.push("purchase_trend not scoped: no customer mapping terms.");
-        return [] as PurchaseTrendRow[];
-      }
-      return rows.filter((row) => includeByTerms(row.importer, identityTerms));
+      return (data ?? []) as PurchaseTrendRow[];
     } catch (error) {
       const message = extractErrorMessage(error);
       if (!isMissingTableError(error)) warnings.push(`purchase_trend query failed: ${message}`);
@@ -903,10 +831,15 @@ export async function loadAgentDataSnapshot(email: string, username: string): Pr
         let data: GenericRow[] | null = null;
         let error: unknown = null;
 
+        if (!customer) {
+          return [table, [] as GenericRow[]] as const;
+        }
+
         if (table === "contract_lines") {
           const res = await supabase
             .from("contract_lines")
-            .select("line_id, contract_id, job, status, ton, acc, date_to, contracts(customer)")
+            .select("line_id, customer_id, contract_id, job, status, ton, acc, date_to, contracts(customer)")
+            .eq("customer_id", customer.id)
             .order("date_to", { ascending: true })
             .limit(3000);
           data = (res.data ?? []) as GenericRow[];
@@ -915,6 +848,7 @@ export async function loadAgentDataSnapshot(email: string, username: string): Pr
           const res = await supabase
             .from("deliveries")
             .select("*")
+            .eq("customer_id", customer.id)
             .order("delivery_date", { ascending: false })
             .limit(2000);
           data = (res.data ?? []) as GenericRow[];
@@ -923,6 +857,7 @@ export async function loadAgentDataSnapshot(email: string, username: string): Pr
           const res = await supabase
             .from("finance_invoices")
             .select("invoice, usd, status_type, invoice_date, customer_name")
+            .eq("customer_id", customer.id)
             .order("invoice_date", { ascending: false })
             .limit(2000);
           data = (res.data ?? []) as GenericRow[];
@@ -936,7 +871,7 @@ export async function loadAgentDataSnapshot(email: string, username: string): Pr
         if (error) throw error;
         const rows = data ?? [];
 
-        if (GLOBAL_SUPPLEMENTAL_TABLES.has(table)) {
+        if (table === "contract_lines" || table === "deliveries" || table === "finance_invoices") {
           return [table, rows] as const;
         }
 

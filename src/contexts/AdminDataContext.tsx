@@ -131,116 +131,10 @@ type ActivityRow = {
 };
 
 const defaultState: AdminState = {
-  customers: [
-    {
-      id: "cus-001",
-      companyName: "Global Foods GmbH",
-      contactName: "Anna Keller",
-      email: "anna.keller@globalfoods.example",
-      phone: "+49 30 1234 5001",
-      country: "Germany",
-      status: "active",
-      notes: "Focus on coffee and cocoa imports for retail chains.",
-      updatedAt: "2026-02-08T09:22:00.000Z",
-    },
-    {
-      id: "cus-002",
-      companyName: "Fresh Imports Ltd",
-      contactName: "Michael Smith",
-      email: "m.smith@freshimports.example",
-      phone: "+44 20 7788 2045",
-      country: "United Kingdom",
-      status: "active",
-      notes: "Requires weekly shipment updates and invoice tracking.",
-      updatedAt: "2026-02-07T14:30:00.000Z",
-    },
-    {
-      id: "cus-003",
-      companyName: "Nordic Trade AB",
-      contactName: "Lina Svensson",
-      email: "lina.svensson@nordictrade.example",
-      phone: "+46 8 400 987 21",
-      country: "Sweden",
-      status: "paused",
-      notes: "Account paused while renegotiating pricing terms.",
-      updatedAt: "2026-02-06T11:05:00.000Z",
-    },
-  ],
-  adminUsers: [
-    {
-      id: "adm-001",
-      name: "John Doe",
-      email: "john.doe@origo.example",
-      role: "owner",
-      status: "active",
-      lastLogin: "2026-02-10T03:10:00.000Z",
-    },
-    {
-      id: "adm-002",
-      name: "Sarah Tan",
-      email: "sarah.tan@origo.example",
-      role: "manager",
-      status: "active",
-      lastLogin: "2026-02-09T15:35:00.000Z",
-    },
-    {
-      id: "adm-003",
-      name: "Luis Romero",
-      email: "luis.romero@origo.example",
-      role: "analyst",
-      status: "invited",
-      lastLogin: "2026-02-05T10:15:00.000Z",
-    },
-  ],
-  uploads: [
-    {
-      id: "upl-001",
-      fileName: "sales_export_jan2024.xlsx",
-      fileSize: "2.4 MB",
-      fileType: "xlsx",
-      description: "January sales shipment and order export for EU market.",
-      customerId: "cus-001",
-      uploadedBy: "Anna Keller",
-      uploadedAt: "2026-02-05T09:20:00.000Z",
-      status: "ready",
-      reviewStatus: "updated",
-    },
-    {
-      id: "upl-002",
-      fileName: "invoices_q4_2023.csv",
-      fileSize: "856 KB",
-      fileType: "csv",
-      description: "Q4 invoices with finance reconciliation notes.",
-      customerId: "cus-002",
-      uploadedBy: "Michael Smith",
-      uploadedAt: "2026-02-06T14:35:00.000Z",
-      status: "ready",
-      reviewStatus: "pending",
-    },
-  ],
-  activityLogs: [
-    {
-      id: "act-001",
-      type: "upload",
-      message: "New upload sales_export_jan2024.xlsx",
-      actor: "Anna Keller",
-      createdAt: "2026-02-05T09:20:00.000Z",
-    },
-    {
-      id: "act-002",
-      type: "customer",
-      message: "Customer profile updated for Fresh Imports Ltd",
-      actor: "Sarah Tan",
-      createdAt: "2026-02-07T11:40:00.000Z",
-    },
-    {
-      id: "act-003",
-      type: "user",
-      message: "Invited admin user Luis Romero",
-      actor: "John Doe",
-      createdAt: "2026-02-08T13:05:00.000Z",
-    },
-  ],
+  customers: [],
+  adminUsers: [],
+  uploads: [],
+  activityLogs: [],
 };
 
 const AdminDataContext = createContext<AdminDataContextValue | null>(null);
@@ -390,17 +284,6 @@ const parseStoredState = (): AdminState => {
   }
 };
 
-const seedSupabaseIfNeeded = async () => {
-  if (!supabase) {
-    return;
-  }
-
-  await supabase.from("customers").upsert(defaultState.customers.map(toCustomerRow));
-  await supabase.from("admin_users").upsert(defaultState.adminUsers.map(toAdminUserRow));
-  await supabase.from("uploads").upsert(defaultState.uploads.map(toUploadRow));
-  await supabase.from("activity_logs").upsert(defaultState.activityLogs.map(toActivityRow));
-};
-
 const loadStateFromSupabase = async (): Promise<AdminState | null> => {
   if (!supabase) {
     return null;
@@ -431,10 +314,7 @@ const loadStateFromSupabase = async (): Promise<AdminState | null> => {
   const hasRemoteData =
     customerRows.length > 0 || adminUserRows.length > 0 || uploadRows.length > 0 || activityRows.length > 0;
 
-  if (!hasRemoteData) {
-    await seedSupabaseIfNeeded();
-    return defaultState;
-  }
+  if (!hasRemoteData) return defaultState;
 
   const state: AdminState = {
     customers: customerRows.map(toCustomerRecord),

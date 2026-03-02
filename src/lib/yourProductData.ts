@@ -1,4 +1,5 @@
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { CUSTOMER_SCOPE_NOT_MAPPED_MESSAGE, resolveCustomerScope } from "@/lib/customerScope";
 
 export type ProductRequestStatus =
   | "DRAFT"
@@ -19,6 +20,7 @@ export type MissingInfoChecklist = {
 
 export type ProductRequestRecord = {
   id: string;
+  customer_id: string | null;
   customer_email: string;
   customer_username: string;
   customer_workspace: string;
@@ -80,6 +82,7 @@ export type ReadyPageProductUpdateInput = Partial<
 >;
 
 export type ProductRequestCreateInput = {
+  customer_id?: string;
   customer_email: string;
   customer_username: string;
   customer_workspace: string;
@@ -111,6 +114,12 @@ export type ProductRequestUpdateInput = Partial<
   missing_info_checklist?: Partial<MissingInfoChecklist>;
 };
 
+export type LoadProductRequestsOptions = {
+  customerId?: string | null;
+  customerEmail?: string | null;
+  limit?: number;
+};
+
 const REQUEST_STORAGE_KEY = "origo-your-product-requests-v1";
 const LOCAL_READY_PRODUCTS_KEY = "origo-ready-page-products-v1";
 const DEFAULT_CHECKLIST: MissingInfoChecklist = {
@@ -131,191 +140,7 @@ type BuyerSignalRow = {
   last_active_year: number;
 };
 
-const LOCAL_READY_PRODUCTS: ReadyPageProduct[] = [
-  {
-    id: "ready-cane-sugar",
-    product_name: "CANE SUGAR",
-    hs_code: "170199",
-    buyers_2023_count: 1126,
-    countries_2023_count: 18,
-    buyers_2026_count: 1364,
-    top_countries_2023: [
-      { country: "Indonesia", code: "ID", share: 19.4 },
-      { country: "Vietnam", code: "VN", share: 16.2 },
-      { country: "Malaysia", code: "MY", share: 13.1 },
-      { country: "Kenya", code: "KE", share: 11.7 },
-      { country: "Uganda", code: "UG", share: 9.5 },
-    ],
-    buyer_snapshot_preview: [
-      {
-        buyer_display_name: "Food Distributor (Indonesia)",
-        country: "Indonesia",
-        country_code: "ID",
-        import_volume_kg: 1482000,
-        frequency: "Monthly",
-        last_active_year: 2023,
-      },
-      {
-        buyer_display_name: "Beverage Processor (Vietnam)",
-        country: "Vietnam",
-        country_code: "VN",
-        import_volume_kg: 1264000,
-        frequency: "Monthly",
-        last_active_year: 2023,
-      },
-      {
-        buyer_display_name: "Retail Chain Supplier (Malaysia)",
-        country: "Malaysia",
-        country_code: "MY",
-        import_volume_kg: 932000,
-        frequency: "Quarterly",
-        last_active_year: 2023,
-      },
-      {
-        buyer_display_name: "Industrial Foods Buyer (Kenya)",
-        country: "Kenya",
-        country_code: "KE",
-        import_volume_kg: 811000,
-        frequency: "Quarterly",
-        last_active_year: 2023,
-      },
-      {
-        buyer_display_name: "Confectionery Group (Uganda)",
-        country: "Uganda",
-        country_code: "UG",
-        import_volume_kg: 705000,
-        frequency: "Monthly",
-        last_active_year: 2023,
-      },
-    ],
-    ready_copy:
-      "Historical demand is established. Priority opportunity is concentrated in repeat buyers with stable monthly purchase behavior.",
-    created_at: "2026-02-19T00:00:00.000Z",
-    updated_at: "2026-02-19T00:00:00.000Z",
-  },
-  {
-    id: "ready-white-sugar",
-    product_name: "WHITE SUGAR",
-    hs_code: "170199",
-    buyers_2023_count: 768,
-    countries_2023_count: 14,
-    buyers_2026_count: 954,
-    top_countries_2023: [
-      { country: "Philippines", code: "PH", share: 17.8 },
-      { country: "Thailand", code: "TH", share: 15.9 },
-      { country: "Nigeria", code: "NG", share: 12.6 },
-      { country: "Bangladesh", code: "BD", share: 10.1 },
-      { country: "Pakistan", code: "PK", share: 9.8 },
-    ],
-    buyer_snapshot_preview: [
-      {
-        buyer_display_name: "Bakery Ingredient Buyer (Philippines)",
-        country: "Philippines",
-        country_code: "PH",
-        import_volume_kg: 920000,
-        frequency: "Monthly",
-        last_active_year: 2023,
-      },
-      {
-        buyer_display_name: "Food Service Distributor (Thailand)",
-        country: "Thailand",
-        country_code: "TH",
-        import_volume_kg: 887000,
-        frequency: "Monthly",
-        last_active_year: 2023,
-      },
-      {
-        buyer_display_name: "Consumer Goods Importer (Nigeria)",
-        country: "Nigeria",
-        country_code: "NG",
-        import_volume_kg: 702000,
-        frequency: "Quarterly",
-        last_active_year: 2023,
-      },
-      {
-        buyer_display_name: "Packaged Foods Buyer (Bangladesh)",
-        country: "Bangladesh",
-        country_code: "BD",
-        import_volume_kg: 588000,
-        frequency: "Quarterly",
-        last_active_year: 2023,
-      },
-      {
-        buyer_display_name: "Regional Trading Buyer (Pakistan)",
-        country: "Pakistan",
-        country_code: "PK",
-        import_volume_kg: 546000,
-        frequency: "Quarterly",
-        last_active_year: 2023,
-      },
-    ],
-    ready_copy:
-      "Demand breadth is healthy. Forward signals indicate stronger performance in countries with regular food-service restocking.",
-    created_at: "2026-02-19T00:00:00.000Z",
-    updated_at: "2026-02-19T00:00:00.000Z",
-  },
-  {
-    id: "ready-brown-sugar",
-    product_name: "BROWN SUGAR",
-    hs_code: "170114",
-    buyers_2023_count: 364,
-    countries_2023_count: 9,
-    buyers_2026_count: 492,
-    top_countries_2023: [
-      { country: "Japan", code: "JP", share: 20.2 },
-      { country: "South Korea", code: "KR", share: 16.4 },
-      { country: "Australia", code: "AU", share: 14.1 },
-      { country: "Singapore", code: "SG", share: 10.8 },
-      { country: "UAE", code: "AE", share: 8.9 },
-    ],
-    buyer_snapshot_preview: [
-      {
-        buyer_display_name: "Organic Foods Buyer (Japan)",
-        country: "Japan",
-        country_code: "JP",
-        import_volume_kg: 332000,
-        frequency: "Monthly",
-        last_active_year: 2023,
-      },
-      {
-        buyer_display_name: "Premium Beverage Producer (South Korea)",
-        country: "South Korea",
-        country_code: "KR",
-        import_volume_kg: 281000,
-        frequency: "Quarterly",
-        last_active_year: 2023,
-      },
-      {
-        buyer_display_name: "Health Retail Group (Australia)",
-        country: "Australia",
-        country_code: "AU",
-        import_volume_kg: 244000,
-        frequency: "Quarterly",
-        last_active_year: 2023,
-      },
-      {
-        buyer_display_name: "Specialty Grocery Importer (Singapore)",
-        country: "Singapore",
-        country_code: "SG",
-        import_volume_kg: 183000,
-        frequency: "Monthly",
-        last_active_year: 2023,
-      },
-      {
-        buyer_display_name: "Hospitality Supplier (UAE)",
-        country: "UAE",
-        country_code: "AE",
-        import_volume_kg: 162000,
-        frequency: "Quarterly",
-        last_active_year: 2023,
-      },
-    ],
-    ready_copy:
-      "A focused but resilient segment. Opportunity expansion is strongest in premium retail and specialty food channels.",
-    created_at: "2026-02-19T00:00:00.000Z",
-    updated_at: "2026-02-19T00:00:00.000Z",
-  },
-];
+const LOCAL_READY_PRODUCTS: ReadyPageProduct[] = [];
 
 const loadLocalReadyProducts = () => {
   if (typeof window === "undefined") return LOCAL_READY_PRODUCTS;
@@ -489,6 +314,7 @@ const normalizeRequestRow = (row: Record<string, unknown>): ProductRequestRecord
 
   return {
     id: normalizeText(row.id) || crypto.randomUUID(),
+    customer_id: toNullable(normalizeText(row.customer_id)) ?? null,
     customer_email: normalizeText(row.customer_email),
     customer_username: normalizeText(row.customer_username),
     customer_workspace: normalizeText(row.customer_workspace),
@@ -522,6 +348,57 @@ const toRequestRow = (record: ProductRequestRecord) => ({
   ...record,
   missing_info_checklist: { ...record.missing_info_checklist },
 });
+
+const toSupabaseRequestPayload = (
+  record: ProductRequestRecord,
+  options: { legacyDetails?: boolean; includeId?: boolean } = {},
+) => {
+  const base = {
+    customer_id: record.customer_id,
+    customer_email: record.customer_email,
+    customer_username: record.customer_username,
+    customer_workspace: record.customer_workspace,
+    product_name: record.product_name,
+    hs_code: record.hs_code,
+    target_market: record.target_market,
+    image_url: record.image_url,
+    image_file_name: record.image_file_name,
+    status: record.status,
+    submitted_at: record.submitted_at,
+    updated_at: record.updated_at,
+    updated_by: record.updated_by,
+    customer_message: record.customer_message,
+    admin_note: record.admin_note,
+    missing_info_checklist: { ...record.missing_info_checklist },
+    confidence: record.confidence,
+    ready_summary: record.ready_summary,
+  };
+
+  const withDetails = options.legacyDetails
+    ? {
+        ...base,
+        details_keyword: record.product_details,
+        details_application: null,
+        details_material: null,
+        details_packaging: null,
+      }
+    : {
+        ...base,
+        product_details: record.product_details,
+      };
+
+  if (options.includeId === false) {
+    return withDetails;
+  }
+
+  return {
+    id: record.id,
+    ...withDetails,
+  };
+};
+
+const isMissingProductDetailsColumnError = (message: string) =>
+  /product_details/i.test(message) && /schema cache|does not exist/i.test(message);
 
 const loadLocalRequests = () => {
   if (typeof window === "undefined") return [] as ProductRequestRecord[];
@@ -664,16 +541,28 @@ export function findReadyProductMatch(productName: string, hsCode?: string | nul
   return fuzzy ?? null;
 }
 
-export async function loadProductRequests() {
+export async function loadProductRequests(options: LoadProductRequestsOptions = {}) {
   if (!isSupabaseConfigured || !supabase) {
     return { rows: loadLocalRequests(), source: "local" as const };
   }
 
-  const { data, error } = await supabase
+  const normalizedCustomerId = normalizeText(options.customerId);
+  const normalizedCustomerEmail = normalizeText(options.customerEmail).toLowerCase();
+  const queryLimit = Math.max(1, Math.min(Number(options.limit ?? 1000) || 1000, 5000));
+
+  let query = supabase
     .from("your_product_requests")
     .select("*")
     .order("submitted_at", { ascending: false })
-    .limit(1000);
+    .limit(queryLimit);
+
+  if (normalizedCustomerId) {
+    query = query.eq("customer_id", normalizedCustomerId);
+  } else if (normalizedCustomerEmail) {
+    query = query.ilike("customer_email", normalizedCustomerEmail);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     if (isSchemaError(error.message)) {
@@ -694,10 +583,23 @@ export async function createProductRequest(
   input: ProductRequestCreateInput,
   readyRows: ReadyPageProduct[] = [],
 ): Promise<ProductRequestRecord> {
+  let customerId = toNullable(normalizeText(input.customer_id));
+  if (!customerId && isSupabaseConfigured && supabase) {
+    const scope = await resolveCustomerScope({
+      email: input.customer_email,
+      username: input.customer_username,
+    });
+    customerId = scope.customerId;
+  }
+  if (!customerId && isSupabaseConfigured && supabase) {
+    throw new Error(CUSTOMER_SCOPE_NOT_MAPPED_MESSAGE);
+  }
+
   const matchedReadyProduct = findReadyProductMatch(input.product_name, input.hs_code, readyRows);
   const now = nowIso();
   const record: ProductRequestRecord = {
     id: crypto.randomUUID(),
+    customer_id: customerId,
     customer_email: normalizeText(input.customer_email),
     customer_username: normalizeText(input.customer_username),
     customer_workspace: normalizeText(input.customer_workspace),
@@ -724,11 +626,21 @@ export async function createProductRequest(
   };
 
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase
+    let response = await supabase
       .from("your_product_requests")
-      .insert(toRequestRow(record))
+      .insert(toSupabaseRequestPayload(record))
       .select("*")
       .single();
+
+    if (response.error && isMissingProductDetailsColumnError(response.error.message)) {
+      response = await supabase
+        .from("your_product_requests")
+        .insert(toSupabaseRequestPayload(record, { legacyDetails: true }))
+        .select("*")
+        .single();
+    }
+
+    const { data, error } = response;
 
     if (!error && data) {
       return normalizeRequestRow(data as Record<string, unknown>);
@@ -795,12 +707,23 @@ export async function updateProductRequest(
     if (!existingResponse.error && existingResponse.data) {
       const existing = normalizeRequestRow(existingResponse.data as Record<string, unknown>);
       const next = mergeWithExisting(existing);
-      const { data, error } = await supabase
+      let response = await supabase
         .from("your_product_requests")
-        .update(toRequestRow(next))
+        .update(toSupabaseRequestPayload(next, { includeId: false }))
         .eq("id", id)
         .select("*")
         .maybeSingle();
+
+      if (response.error && isMissingProductDetailsColumnError(response.error.message)) {
+        response = await supabase
+          .from("your_product_requests")
+          .update(toSupabaseRequestPayload(next, { legacyDetails: true, includeId: false }))
+          .eq("id", id)
+          .select("*")
+          .maybeSingle();
+      }
+
+      const { data, error } = response;
 
       if (!error && data) {
         return normalizeRequestRow(data as Record<string, unknown>);

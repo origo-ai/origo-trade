@@ -40,6 +40,7 @@ import { getFlagEmoji } from "@/lib/flags";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { resolveCustomerScope } from "@/lib/customerScope";
 import { loadProductRequests } from "@/lib/yourProductData";
 import type { Company, Country, HsCode, TradeHistoryRow } from "@/data/market-intelligence/types";
 import {
@@ -143,7 +144,7 @@ function CustomerTypeCell({ value }: { value?: string | null }) {
 export default function MarketIntelligence() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { email } = useAuth();
+  const { email, username } = useAuth();
   const [activeTab, setActiveTab] = useState<MarketSectionTab>(() => {
     if (typeof window === "undefined") return "market-insights";
     const stored = window.sessionStorage.getItem(MARKET_TAB_STORAGE_KEY);
@@ -251,7 +252,11 @@ export default function MarketIntelligence() {
 
     const loadReadyProducts = async () => {
       try {
-        const requestResult = await loadProductRequests();
+        const scope = await resolveCustomerScope({ email, username });
+        const requestResult = await loadProductRequests({
+          customerId: scope.customerId,
+          customerEmail: scope.customerId ? null : normalizedEmail,
+        });
         if (!active) return;
         const rows = requestResult.rows
           .filter(
@@ -283,7 +288,7 @@ export default function MarketIntelligence() {
     return () => {
       active = false;
     };
-  }, [email]);
+  }, [email, username]);
 
   const hsCodeOptions = useMemo(
     () => (companyDataSource ? getHsCodesFromDataset(companyDataSource) : []),
