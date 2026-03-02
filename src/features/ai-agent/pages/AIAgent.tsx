@@ -11,7 +11,7 @@ import {
   buildAgentReply,
   loadAgentDataSnapshot,
   type AgentDataSnapshot,
-} from "@/lib/customerAiAgent";
+} from "@/features/ai-agent/data/customerAiAgent";
 
 type ChatMessage = {
   id: string;

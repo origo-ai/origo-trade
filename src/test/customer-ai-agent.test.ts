@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAgentReply, type AgentDataSnapshot } from "@/lib/customerAiAgent";
+import { buildAgentReply, type AgentDataSnapshot } from "@/features/ai-agent/data/customerAiAgent";
 
 const baseSnapshot: AgentDataSnapshot = {
   loadedAt: "2026-02-17T00:00:00.000Z",

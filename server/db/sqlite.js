@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
-import { DB_PATH } from "./config.js";
+import { DB_PATH } from "../config/env.js";
 
 let dbInstance = null;
 

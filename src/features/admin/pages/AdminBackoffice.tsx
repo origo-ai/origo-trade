@@ -34,7 +34,7 @@ import {
   setMarketSourceLink,
   buildAdminApiUrl,
   type CustomerContextRow,
-} from "@/lib/adminApi";
+} from "@/services/admin-api/client";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 type Bundle = Awaited<ReturnType<typeof getCustomerBundle>>;

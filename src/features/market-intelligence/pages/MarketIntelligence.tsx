@@ -40,8 +40,8 @@ import { getFlagEmoji } from "@/lib/flags";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { resolveCustomerScope } from "@/lib/customerScope";
-import { loadProductRequests } from "@/lib/yourProductData";
+import { resolveCustomerScope } from "@/data-access/customer/scope";
+import { loadProductRequests } from "@/data-access/products/yourProductData";
 import type { Company, Country, HsCode, TradeHistoryRow } from "@/data/market-intelligence/types";
 import {
   getAvailableMonthsFromDataset,

@@ -9,15 +9,15 @@ const testDbPath = path.join(process.cwd(), "server", "data", "origo-backoffice.
 async function createTestApp() {
   process.env.ORIGO_DB_PATH = testDbPath;
   vi.resetModules();
-  const { resetDbForTests } = await import("../../../server/db.js");
+  const { resetDbForTests } = await import("../../../server/db/sqlite.js");
   resetDbForTests();
-  const { createApp } = await import("../../../server/app.js");
+  const { createApp } = await import("../../../server/app/createApp.js");
   return createApp();
 }
 
 describe("admin backoffice api", () => {
   afterEach(async () => {
-    const { resetDbForTests } = await import("../../../server/db.js");
+    const { resetDbForTests } = await import("../../../server/db/sqlite.js");
     resetDbForTests();
     if (fs.existsSync(testDbPath)) {
       fs.rmSync(testDbPath, { force: true });

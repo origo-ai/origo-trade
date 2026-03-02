@@ -1,5 +1,5 @@
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
-import { CUSTOMER_SCOPE_NOT_MAPPED_MESSAGE, resolveCustomerScope } from "@/lib/customerScope";
+import { CUSTOMER_SCOPE_NOT_MAPPED_MESSAGE, resolveCustomerScope } from "@/data-access/customer/scope";
 
 export type ProductRequestStatus =
   | "DRAFT"

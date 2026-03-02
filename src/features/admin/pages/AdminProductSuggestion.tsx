@@ -26,7 +26,7 @@ import {
   type ProductRequestRecord,
   type ProductRequestStatus,
   type ReadyPageProduct,
-} from "@/lib/yourProductData";
+} from "@/data-access/products/yourProductData";
 
 const STATUS_STYLE: Record<ProductRequestStatus, string> = {
   DRAFT: "border-slate-200 bg-slate-50 text-slate-700",

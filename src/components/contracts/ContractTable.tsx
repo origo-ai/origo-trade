@@ -24,7 +24,7 @@ import {
   CUSTOMER_SCOPE_NOT_MAPPED_MESSAGE,
   getScopeAwareErrorMessage,
   resolveCustomerScope,
-} from "@/lib/customerScope";
+} from "@/data-access/customer/scope";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 type ContractRelation =

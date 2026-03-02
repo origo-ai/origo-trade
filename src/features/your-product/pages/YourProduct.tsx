@@ -16,7 +16,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
-import { CUSTOMER_SCOPE_NOT_MAPPED_MESSAGE, resolveCustomerScope } from "@/lib/customerScope";
+import { CUSTOMER_SCOPE_NOT_MAPPED_MESSAGE, resolveCustomerScope } from "@/data-access/customer/scope";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import {
   createProductRequest,
@@ -28,7 +28,7 @@ import {
   type ProductRequestRecord,
   type ProductRequestStatus,
   type ReadyPageProduct,
-} from "@/lib/yourProductData";
+} from "@/data-access/products/yourProductData";
 
 const STATUS_STYLE: Record<ProductRequestStatus, string> = {
   DRAFT: "border-slate-200 bg-slate-50 text-slate-700",

@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
-import { API_PORT } from "./config.js";
-import { createApp } from "./app.js";
+import { API_PORT } from "./config/env.js";
+import { createApp } from "./app/createApp.js";
 
 dotenv.config({ path: ".env.local" });
 dotenv.config();

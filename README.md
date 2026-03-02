@@ -1,4 +1,4 @@
-# Welcome to your Lovable project
+# ORIGO Trade
 
 ## Team Workflow (GitHub)
 
@@ -25,55 +25,16 @@ git push -u origin feat/your-task
 
 จากนั้นเปิด Pull Request และให้ทีม review ก่อน merge
 
-## Project info
+## AI Rules
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+กติกาสำหรับ AI ให้ยึด [AGENTS.md](./AGENTS.md) เป็นหลัก
 
-## How can I edit this code?
+สรุปสั้น ๆ:
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- ต้องประกาศ `Scope: frontend | backend` ก่อนเริ่มแก้
+- ไม่จำเป็นต้องระบุไฟล์ก่อนเริ่ม ถ้ายังไม่ได้ไล่สำรวจโค้ด
+- ห้ามข้ามจาก frontend ไป backend หรือ backend ไป frontend โดยไม่ประกาศ
+- ถ้ากระทบอีกฝั่ง ให้ยังเลือก scope หลักเป็น `frontend` หรือ `backend` อย่างใดอย่างหนึ่ง และบอกให้ชัดว่ามี cross-boundary impact
 
 ## What technologies are used for this project?
 
@@ -85,6 +46,46 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Current Structure
+
+โครงสร้างหลักของโปรเจกต์:
+
+```text
+src/
+  app/           # app shell, routing, global app pages
+  features/      # domain-based UI/pages
+  services/      # frontend API clients
+  data-access/   # frontend data access / Supabase-facing modules
+  components/    # shared UI
+  contexts/
+  hooks/
+  lib/           # pure utilities only
+
+server/
+  app/           # app wiring + shared server helpers
+  routes/        # express route registration by domain
+  services/      # backend services / domain logic
+  db/            # sqlite access
+  middleware/    # auth / RBAC middleware
+  config/        # env / runtime config
+  migrations/
+
+supabase/
+  migrations/
+  functions/
+```
+
+## Ownership Boundary
+
+- `frontend`: `src/app`, `src/features`, `src/components`, `src/contexts`, `src/hooks`
+- `backend`: `server/*`, `supabase/*`
+
+สำหรับ `src/services`, `src/data-access`, `src/types`:
+
+- ยังต้องประกาศ scope เป็นแค่ `frontend` หรือ `backend`
+- ถ้าไฟล์ที่แก้มีผลต่อ API contract หรือ data shape ให้ default เป็น `backend`
+- ถ้าไม่ใช่การเปลี่ยน contract ให้เลือกฝั่งหลักที่งานนั้นสังกัด และระบุเพิ่มว่ากระทบอีกฝั่งหรือไม่
+
 ## Admin Backoffice (REST + UI)
 
 - API server: `server/index.js`
@@ -93,6 +94,17 @@ This project is built with:
 - Run both services: `npm run dev:full`
 - Setup guide: `docs/admin-backoffice-setup.md`
 - API reference: `docs/admin-backoffice-api.md`
+
+## Local Setup
+
+แนะนำ Node.js `20.x` ตาม `package.json`
+
+```sh
+npm install
+npm run build
+npm test
+npm run dev
+```
 
 ## Supabase setup
 
@@ -120,15 +132,3 @@ npm run dev
 หมายเหตุ:
 - หาก Supabase ว่าง ระบบจะ seed ข้อมูล demo เริ่มต้นให้อัตโนมัติ
 - ตารางที่ใช้: `customers`, `admin_users`, `uploads`, `activity_logs`
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
