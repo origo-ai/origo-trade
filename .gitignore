@@ -33,3 +33,6 @@ coverage
 *.tsbuildinfo
 
 .vercel
+.tools/
+supabase/.temp/
+backend/server/data/*.db*

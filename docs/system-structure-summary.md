@@ -2,34 +2,40 @@
 
 ## 1) Tech Stack
 - Frontend: React + TypeScript + Vite
+- Frontend package root: `frontend/`
+- Backend package root: `backend/`
 - UI: shadcn/ui + Tailwind
 - Routing: `react-router-dom`
 - Data fetch/state:
-- Supabase client (`src/lib/supabase.ts`)
-- React Query provider (`src/App.tsx`)
+- Supabase client (`frontend/src/lib/supabase.ts`)
+- React Query provider (`frontend/src/app/App.tsx`)
 - App-level contexts:
-- Auth: `src/contexts/AuthContext.tsx`
-- Backoffice data: `src/contexts/AdminDataContext.tsx`
+- Auth: `frontend/src/contexts/AuthContext.tsx`
+- Backoffice data: `frontend/src/contexts/AdminDataContext.tsx`
 
 ## 2) App Entry & Layout
-- Entry routing: `src/App.tsx`
-- Protected layout shell: `src/components/layout/AppLayout.tsx`
-- Desktop sidebar: `src/components/layout/AppSidebar.tsx`
-- Mobile bottom nav: `src/components/layout/MobileTabBar.tsx`
-- Nav definitions: `src/components/layout/navItems.ts`
+- Entry routing: `frontend/src/app/App.tsx`
+- Protected layout shell: `frontend/src/components/layout/AppLayout.tsx`
+- Desktop sidebar: `frontend/src/components/layout/AppSidebar.tsx`
+- Mobile bottom nav: `frontend/src/components/layout/MobileTabBar.tsx`
+- Nav definitions: `frontend/src/components/layout/navItems.ts`
 
 ## 3) Source Tree (High-Level)
 ```text
-src/
-  components/      # reusable UI + feature components
-  contexts/        # AuthContext, AdminDataContext
-  data/            # data adapters/transformers (market intelligence)
-  hooks/           # custom hooks
-  lib/             # Supabase/data services/utilities
-  pages/           # customer pages
-  pages/admin/     # admin pages
-  types/           # shared types
-docs/sql/          # DB migration/policy/seed scripts
+frontend/
+  src/
+    components/    # reusable UI + feature components
+    contexts/      # AuthContext, AdminDataContext
+    data/          # data adapters/transformers (market intelligence)
+    data-access/   # frontend data access helpers
+    features/      # route-level pages by domain
+    hooks/         # custom hooks
+    lib/           # Supabase/data services/utilities
+    types/         # shared types
+backend/
+  server/          # express API + sqlite runtime
+  scripts/         # backend utilities
+supabase/          # shared migrations/functions
 ```
 
 ## 4) Route Map
@@ -63,7 +69,7 @@ docs/sql/          # DB migration/policy/seed scripts
 ## 5) Data Flow (Auth → Scope → Data)
 - Login via Supabase Auth in `AuthContext`
 - App resolves user profile from `public.users`
-- Customer scope resolution in `src/lib/customerScope.ts`
+- Customer scope resolution in `frontend/src/data-access/customer/scope.ts`
 - Data pages query Supabase with `customer_id` filter (where implemented)
 - RLS/migration scripts live in `docs/sql/`
 
@@ -71,7 +77,7 @@ docs/sql/          # DB migration/policy/seed scripts
 
 ### Customer side
 - Market Intelligence:
-- adapter `src/data/market-intelligence/companyListSource.ts`
+- adapter `frontend/src/data/market-intelligence/companyListSource.ts`
 - tables: `company_overview`, `company_basic_info`, `company_contacts`, `purchase_trend`/`purchase_trends`, `supabase_companies`/`companies`
 - Market Intelligence Company Profile:
 - `supabase_companies`, `companies` + per-table profile lookups
@@ -86,7 +92,7 @@ docs/sql/          # DB migration/policy/seed scripts
 - AI Agent:
 - `customers`, `uploads`, `finance_invoices`, `stock`, `purchase_trend`, `contract_lines`, `deliveries`
 - YOUR Product:
-- service `src/lib/yourProductData.ts`
+- service `frontend/src/data-access/products/yourProductData.ts`
 - tables: `your_product_requests`, `ready_page_products`, `ready_page_buyer_signals`
 
 ### Admin side
@@ -102,11 +108,11 @@ docs/sql/          # DB migration/policy/seed scripts
 
 ## 8) Current Refactor Hotspots
 - Very large files (split needed):
-- `src/pages/MarketIntelligenceCompanyProfile.tsx`
-- `src/pages/MarketIntelligence.tsx`
-- `src/components/contracts/ContractTable.tsx`
-- `src/lib/customerAiAgent.ts`
-- `src/lib/yourProductData.ts`
+- `frontend/src/features/market-intelligence/pages/MarketIntelligenceCompanyProfile.tsx`
+- `frontend/src/features/market-intelligence/pages/MarketIntelligence.tsx`
+- `frontend/src/components/contracts/ContractTable.tsx`
+- `frontend/src/features/ai-agent/data/customerAiAgent.ts`
+- `frontend/src/data-access/products/yourProductData.ts`
 - Legacy compatibility in YOUR Product data layer still present
 - Bundle size warning remains (need route/module code splitting)
 

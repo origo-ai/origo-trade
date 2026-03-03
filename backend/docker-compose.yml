@@ -1,0 +1,29 @@
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: backend/server/Dockerfile
+    env_file:
+      - ../.env.local
+    environment:
+      API_PORT: 4000
+      ORIGO_DB_PATH: /app/backend/server/data/origo-backoffice.db
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./server/data:/app/backend/server/data
+
+  web:
+    image: node:20-alpine
+    working_dir: /app/frontend
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0 --port 5173"
+    env_file:
+      - ../.env.local
+    environment:
+      VITE_ADMIN_API_URL: http://localhost:4000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ../frontend:/app/frontend
+    depends_on:
+      - api

@@ -31,8 +31,8 @@
 ## Phase 3: App Refactor
 1. Replace demo-centric text in UI/constants.
 2. Keep shared scope utilities:
-   - `src/lib/customerScope.ts`
-   - `src/lib/yourProductData.ts`
+   - `frontend/src/data-access/customer/scope.ts`
+   - `frontend/src/data-access/products/yourProductData.ts`
    - scoped pages (`MyCompany`, `Inventory`, `InvoicesPayments`, `ContractTable`, `YourProduct`).
 3. Ensure no runtime dependency on demo seed data.
 

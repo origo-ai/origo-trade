@@ -5,6 +5,7 @@
 สำหรับการทำงานร่วมกันในทีม ให้ใช้ Pull Request flow ตามเอกสารนี้:
 
 - คู่มือทีม: `CONTRIBUTING.md`
+- คู่มือการเริ่มงาน/อัปเดต branch: `docs/developer-workflow.md`
 - Checklist รีวิว: `docs/review-checklist.md`
 - PR template: `.github/pull_request_template.md`
 - CI checks: `.github/workflows/ci.yml`
@@ -51,36 +52,50 @@ This project is built with:
 โครงสร้างหลักของโปรเจกต์:
 
 ```text
-src/
-  app/           # app shell, routing, global app pages
-  features/      # domain-based UI/pages
-  services/      # frontend API clients
-  data-access/   # frontend data access / Supabase-facing modules
-  components/    # shared UI
-  contexts/
-  hooks/
-  lib/           # pure utilities only
+frontend/
+  src/
+    app/         # app shell, routing, global app pages
+    features/    # domain-based UI/pages
+    services/    # frontend API clients
+    data-access/ # frontend data access / Supabase-facing modules
+    components/  # shared UI
+    contexts/
+    hooks/
+    lib/         # pure utilities only
+  public/
+  index.html
+  package.json
 
-server/
-  app/           # app wiring + shared server helpers
-  routes/        # express route registration by domain
-  services/      # backend services / domain logic
-  db/            # sqlite access
-  middleware/    # auth / RBAC middleware
-  config/        # env / runtime config
-  migrations/
+backend/
+  server/
+    app/         # app wiring + shared server helpers
+    routes/      # express route registration by domain
+    services/    # backend services / domain logic
+    db/          # sqlite access
+    middleware/  # auth / RBAC middleware
+    config/      # env / runtime config
+    migrations/
+    data/        # sqlite db + uploads
+  scripts/
+  package.json
+  Dockerfile
+  docker-compose.yml
+  nginx.conf
 
 supabase/
   migrations/
   functions/
+
+docs/
+.github/
 ```
 
 ## Ownership Boundary
 
-- `frontend`: `src/app`, `src/features`, `src/components`, `src/contexts`, `src/hooks`
-- `backend`: `server/*`, `supabase/*`
+- `frontend`: `frontend/src/app`, `frontend/src/features`, `frontend/src/components`, `frontend/src/contexts`, `frontend/src/hooks`
+- `backend`: `backend/server/*`, `backend/scripts/*`, `supabase/*`
 
-สำหรับ `src/services`, `src/data-access`, `src/types`:
+สำหรับ `frontend/src/services`, `frontend/src/data-access`, `frontend/src/types`:
 
 - ยังต้องประกาศ scope เป็นแค่ `frontend` หรือ `backend`
 - ถ้าไฟล์ที่แก้มีผลต่อ API contract หรือ data shape ให้ default เป็น `backend`
@@ -88,22 +103,33 @@ supabase/
 
 ## Admin Backoffice (REST + UI)
 
-- API server: `server/index.js`
-- DB migrations/seed: `server/migrations`
+- API server: `backend/server/index.js`
+- DB migrations/seed: `backend/server/migrations`
 - Admin UI route: `/admin/backoffice`
-- Run both services: `npm run dev:full`
+- Run both services: `cd frontend && npm run dev:full`
 - Setup guide: `docs/admin-backoffice-setup.md`
 - API reference: `docs/admin-backoffice-api.md`
 
 ## Local Setup
 
-แนะนำ Node.js `20.x` ตาม `package.json`
+แนะนำ Node.js `20.x` เป็นค่าเริ่มต้น และรองรับ `24.x` สำหรับเครื่องที่ต้องใช้ runtime ใหม่กว่า
+
+หมายเหตุ:
+- คำสั่งจาก root (`npm run build`, `npm run test`, `npm run dev`, ฯลฯ) จะใช้ `node` / `npm` จากเครื่องโดยตรง
+- มีไฟล์ `.nvmrc` และ `.node-version` เพื่อช่วยให้ version manager อื่นเลือก Node `20.20.0` ได้ง่ายขึ้น
 
 ```sh
-npm install
+npm run install:all
 npm run build
 npm test
+npm run backend:check
 npm run dev
+```
+
+หากต้องการรันทั้ง frontend + backend พร้อมกันจาก root:
+
+```sh
+npm run dev:full
 ```
 
 ## Supabase setup
@@ -125,6 +151,7 @@ VITE_SUPABASE_ANON_KEY=<your-anon-key>
 4. ติดตั้ง dependency และรันแอป:
 
 ```sh
+cd frontend
 npm i
 npm run dev
 ```

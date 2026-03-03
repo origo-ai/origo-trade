@@ -1,8 +1,8 @@
 # ORIGO Admin Backoffice (Local Full-Stack)
 
 ## What is included
-- SQLite-backed admin API (`server/`)
-- DB migrations + seed (`server/migrations`)
+- SQLite-backed admin API (`backend/server/`)
+- DB migrations + seed (`backend/server/migrations`)
 - Responsive admin UI page (`/admin/backoffice`)
 - Customer context switcher pinned in topbar
 - Audit logs for all write actions
@@ -16,7 +16,7 @@
 
 ## Local run
 ```bash
-npm install
+npm run install:all
 npm run dev:full
 ```
 
@@ -31,7 +31,7 @@ If `SUPABASE_*` is not provided, API falls back to `VITE_SUPABASE_*`.
 
 ## Docker Compose
 ```bash
-docker compose up --build
+docker compose -f backend/docker-compose.yml up --build
 ```
 
 ## API auth model for local dev
@@ -44,6 +44,7 @@ Default role if missing is `SUPER_ADMIN`.
 
 ## Test commands
 ```bash
+npm run backend:check
 npm run lint
 npm run test
 ```
